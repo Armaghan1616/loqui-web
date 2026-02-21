@@ -549,7 +549,7 @@ function Onboarding({ onDone }) {
       <View style={{ marginTop: 40, paddingHorizontal: 24 }}>
         <Text style={styles.label}>Your name</Text>
         <TextInput
-          placeholder="e.g., Johnathan"
+          placeholder="e.g., Johnny"
           placeholderTextColor={'rgba(255,255,255,0.5)'}
           value={n}
           onChangeText={setN}
