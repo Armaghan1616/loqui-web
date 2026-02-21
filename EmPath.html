@@ -1,0 +1,198 @@
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { createPageUrl } from '@/utils';
+import { base44 } from '@/api/base44Client';
+import { Settings, MessageCircle, Heart } from 'lucide-react';
+import { motion } from 'framer-motion';
+
+export default function Home() {
+  const [profile, setProfile] = useState(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const loadData = async () => {
+    try {
+      const profiles = await base44.entities.UserProfile.list();
+      if (profiles && profiles.length > 0) setProfile(profiles[0]);
+
+      const contacts = await base44.entities.Contact.list();
+      const totalUnread = (contacts || []).reduce((sum, c) => sum + (c.unread_count || 0), 0);
+      setUnreadCount(totalUnread);
+    } catch (err) {
+      console.error('loadData error', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMoodSelect = async (mood) => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const profiles = await base44.entities.UserProfile.list();
+
+      if (profiles && profiles.length > 0) {
+        const existingProfile = profiles[0];
+        const lastCheckIn = existingProfile.last_check_in;
+        let newStreak = existingProfile.streak_count || 0;
+
+        if (lastCheckIn !== today) {
+          const yesterday = new Date();
+          yesterday.setDate(yesterday.getDate() - 1);
+          const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+          if (lastCheckIn === yesterdayStr) newStreak += 1;
+          else newStreak = 1;
+        }
+
+        await base44.entities.UserProfile.update(existingProfile.id, {
+          current_mood: mood,
+          last_check_in: today,
+          streak_count: newStreak,
+        });
+
+        setProfile({
+          ...existingProfile,
+          current_mood: mood,
+          streak_count: newStreak,
+          last_check_in: today,
+        });
+      } else {
+        const newProfile = await base44.entities.UserProfile.create({
+          display_name: 'User',
+          current_mood: mood,
+          streak_count: 1,
+          last_check_in: today,
+        });
+        setProfile(newProfile);
+      }
+    } catch (err) {
+      console.error('handleMoodSelect error', err);
+    }
+  };
+
+  const getMoodButtonStyle = (mood) => {
+    const isSelected = profile?.current_mood === mood;
+    return `px-8 py-4 rounded-[24px] font-bold text-xl transition-all duration-300 ${
+      isSelected
+        ? 'bg-[#DAD2FF] text-[#3b3b3b] shadow-md scale-105'
+        : 'bg-[#8FA5FF] text-[#3b3b3b] hover:bg-[#DAD2FF]'
+    }`;
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-[#EDE9E2]">
+        <div className="text-[#3b3b3b] font-semibold">Loading…</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#EDE9E2] relative overflow-hidden flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 opacity-30"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23DAD2FF' fill-opacity='0.4'%3E%3Cpath d='M0 0h40v40H0V0zm40 40h40v40H40V40z' fill-rule='evenodd'/%3E%3C/g%3E%3C/svg%3E")`,
+        }}
+      />
+
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="relative z-10 w-full max-w-5xl bg-[#FAF7F0] rounded-[32px] p-8 shadow-2xl"
+        style={{ border: '8px solid #9381FF' }}
+      >
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="bg-[#8FA5FF] text-[#3b3b3b] px-6 py-3 rounded-full shadow-md">
+              <span className="font-semibold text-lg" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                Name: {profile?.display_name || '(First)(last)'}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2 bg-[#8FA5FF] px-6 py-3 rounded-full shadow-md">
+              <span className="font-semibold text-lg text-[#3b3b3b]" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                Streak: {profile?.streak_count || 0}
+              </span>
+              <span className="text-2xl">💧</span>
+            </div>
+          </div>
+
+          <Link to={createPageUrl('Settings')}>
+            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="p-3 bg-[#8FA5FF] rounded-full shadow-md text-[#3b3b3b]">
+              <Settings className="w-7 h-7" />
+            </motion.button>
+          </Link>
+        </div>
+
+        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-[#9381FF] rounded-[28px] p-12 mb-8 relative overflow-hidden shadow-lg">
+          <h1 className="text-5xl font-bold text-[#3b3b3b] relative z-10" style={{ fontFamily: 'Poppins, sans-serif' }}>
+            Welcome to EmPath
+          </h1>
+
+          <div className="absolute right-8 top-1/2 -translate-y-1/2 w-32 h-32">
+            <div className="relative w-full h-full">
+              <div className="absolute inset-0 bg-gradient-to-b from-[#B4D4FF] to-[#8FA5FF] rounded-full" />
+              <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-[#7FB069] to-[#9BC97F] rounded-b-full" />
+              <div className="absolute top-4 right-2 w-16 h-8 bg-white/90 rounded-full" />
+              <div className="absolute top-3 right-6 w-10 h-6 bg-white/90 rounded-full" />
+            </div>
+          </div>
+        </motion.div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-6">
+            <Link to={createPageUrl('Chat')}>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="w-full bg-[#8FA5FF] text-[#3b3b3b] py-5 px-8 rounded-[28px] font-bold text-2xl shadow-lg flex items-center gap-4 relative"
+                style={{ fontFamily: 'Poppins, sans-serif' }}
+              >
+                Chat
+                <MessageCircle className="w-8 h-8" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-3 left-32 bg-[#FFBFA3] text-[#3b3b3b] w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold shadow-md">
+                    {unreadCount}
+                  </span>
+                )}
+              </motion.button>
+            </Link>
+
+            <Link to={createPageUrl('SelfReflect')}>
+              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full bg-[#8FA5FF] text-[#3b3b3b] py-5 px-8 rounded-[28px] font-bold text-2xl shadow-lg flex items-center gap-4" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                Self reflect
+                <Heart className="w-8 h-8" />
+              </motion.button>
+            </Link>
+          </div>
+
+          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }} className="bg-[#9381FF] rounded-[28px] p-8 shadow-lg">
+            <h2 className="text-2xl font-bold text-[#3b3b3b] text-center mb-6" style={{ fontFamily: 'Poppins, sans-serif' }}>
+              How do you feel today?
+            </h2>
+
+            <div className="flex justify-center gap-4">
+              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => handleMoodSelect('great')} className={getMoodButtonStyle('great')} style={{ fontFamily: 'Poppins, sans-serif' }}>
+                Great!
+              </motion.button>
+
+              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => handleMoodSelect('okay')} className={getMoodButtonStyle('okay')} style={{ fontFamily: 'Poppins, sans-serif' }}>
+                Okay
+              </motion.button>
+
+              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => handleMoodSelect('bad')} className={getMoodButtonStyle('bad')} style={{ fontFamily: 'Poppins, sans-serif' }}>
+                Bad
+              </motion.button>
+            </div>
+          </motion.div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
